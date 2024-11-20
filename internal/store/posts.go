@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
+
 	"github.com/lib/pq"
 )
 
@@ -30,4 +32,52 @@ VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
 		return err
 	}
 	return nil
+}
+
+func (s *PostStore) GetByID(ctx context.Context, id int64) (*Post, error) {
+	query := `
+SELECT id, content, title, user_id, tags, created_at, updated_at
+FROM posts
+WHERE id = $1
+	`
+
+	var post Post
+	err := s.db.QueryRowContext(ctx, query, id).Scan(&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags), &post.CreatedAt, &post.UpdatedAt)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrNotFound
+		default:
+			return nil, err
+		}
+	}
+	return &post, nil
+}
+
+func (s *PostStore) List(ctx context.Context) ([]*Post, error) {
+	query := `
+	SELECT id, content, title, user_id, tags, created_at, updated_at FROM posts
+	`
+
+	var posts []*Post
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var post Post
+		if err := rows.Scan(&post.ID, &post.Content, &post.Title, &post.UserID, pq.Array(&post.Tags), &post.CreatedAt, &post.UpdatedAt); err != nil {
+			return nil, err
+		}
+		posts = append(posts, &post)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
+
 }
