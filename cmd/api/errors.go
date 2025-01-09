@@ -22,3 +22,8 @@ func (app *application) notFoundResponse(w http.ResponseWriter, r *http.Request,
 	writeJSON(w, http.StatusInternalServerError, "not found error")
 
 }
+
+func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request, err error) {
+	log.Printf("conflict error: %s path: %s error: %s", r.Method, r.URL.Path, err)
+	writeJSON(w, http.StatusConflict, err.Error())
+}
